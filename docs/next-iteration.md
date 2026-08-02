@@ -53,6 +53,20 @@ Implemented in this pass (tests 60 → 69, gate green):
 - Release-log entry renderer (TUI transcript cards) + `/sites log` subcommand.
 - `parseProjectId` + provision/overview connector prompts in `src/release.ts`.
 
+Implemented in the TUI-menu pass (tests 69 → 83, gate green):
+- **Edit menu** — `/sites edit` (and **Edit settings** in the menu): a
+  keyboard-driven custom TUI component (`ctx.ui.custom` + pi-tui `SelectList`,
+  docs Pattern 1) with a live status pane (config / hosting / release log) and
+  11 actions to **change or edit things**: toggle `promotion.enabled`,
+  set/clear `connector.command`, set/clear `bundle.path`, set/clear the `d1`/`r2`
+  hosting bindings (validated, `project_id` preserved), add a release-log note.
+  Component factory exported (`buildMenuComponent`) and unit-tested for
+  render + keyboard (up/down/enter/escape); RPC/print degrade to the select
+  loop / text summary; headless editing via `/sites config get|set <key> [value]`.
+- `src/config-edit.ts` — shared, validated write path for config and
+  bindings (withFileMutationQueue); `src/menu-tui.ts` — the reusable menu
+  component and its `MenuUi` structural type.
+
 Next build (each is a small, testable slice):
 1. **Structured connector runner** — `codex exec --json` (+ `--ephemeral`),
    parse `item.completed` text; fall back to plain mode. Replaces raw-output
@@ -82,3 +96,20 @@ Next build (each is a small, testable slice):
 - Should `sites_provision` require an explicit `--create` confirmation flag
   (it mutates the control plane)?
 - Park `codex mcp-server` bridge until `enable_mcp_apps` matures — agreed?
+
+## 6. Verification notes (TUI menu pass)
+
+- The custom menu component render was captured live from a real pi TUI
+  session (title, real config/hosting/release status lines, all 11 items with
+  descriptions, help line). Component keyboard behavior (up/down/enter/escape
+  → navigate/select/cancel) is covered by unit tests against the exported
+  factory. RPC mode degrades to the select loop (verified live: 12-option
+  dialog, Close exits); print mode returns the headless text summary
+  (verified). `/sites config get|set` was verified live end-to-end (writes
+  persisted to `.pi/sites.json` preserving unrelated keys).
+- UNVERIFIED: full key-driven interaction in a REAL terminal. The pty
+  environments available here (script, python pty) cannot cleanly deliver
+  keys to custom components: the dumb pty echoes a terminal-query byte
+  (`\x1b`) that pi routes to the focused component ~4s after open, which the
+  SelectList correctly treats as cancel — an environment artifact that also
+  affects pi's own custom-component examples, not an extension defect.

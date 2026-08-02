@@ -15,11 +15,19 @@ import { findSitesBundle } from "./core/bundle.ts";
 import { loadSitesConfig } from "./core/config.ts";
 import { isSitesProject, readHostingConfig } from "./core/hosting.ts";
 import { lastLines } from "./core/output.ts";
+import {
+  type MenuMode,
+  type MenuUi,
+  menuItems,
+  openTuiMenu,
+} from "./menu-tui.ts";
 
 /** Actions offered by the Sites menu (each returns bounded text). */
 export interface SitesMenuActions {
   check: () => Promise<string>;
   diagnose: () => Promise<string>;
+  /** Opens the edit flow (config / bindings / release notes). */
+  edit?: () => Promise<string>;
   init: () => Promise<string>;
   package: () => Promise<string>;
   release: () => Promise<string>;
@@ -257,7 +265,9 @@ export function renderMenuStatus(s: SitesMenuStatus): string {
 interface SitesMenuContext {
   cwd: string;
   hasUI: boolean;
-  ui: {
+  mode: MenuMode;
+  ui: MenuUi & {
+    input: (prompt: string, placeholder: string) => Promise<string | undefined>;
     notify: (message: string, level: "info" | "warning" | "error") => void;
     select: (title: string, options: string[]) => Promise<string | undefined>;
     setStatus: (key: string, text: string | undefined) => void;
@@ -271,6 +281,7 @@ const MENU_OPTIONS = [
   "Package",
   "Diagnose",
   "Release desk",
+  "Edit settings",
   "Close",
 ] as const;
 
@@ -308,6 +319,8 @@ function menuAction(
       return () => actions.diagnose();
     case "Release desk":
       return () => actions.release();
+    case "Edit settings":
+      return actions.edit ?? null;
     default:
       return null;
   }
@@ -369,4 +382,247 @@ export async function openSitesMenu(
   }
   ctx.ui.setStatus(FOOTER_KEY, undefined);
   return null;
+}
+
+// --- edit menu (TUI custom component + RPC select-loop fallback) -----------
+
+/** Edit operations the menu can perform; implemented by the command layer. */
+export interface SitesEditApi {
+  config: {
+    clearBundlePath: () => Promise<string>;
+    clearConnectorCommand: () => Promise<string>;
+    /** Current config summary line (secret-free). */
+    describe: () => string;
+    setBundlePath: (value: string) => Promise<string>;
+    setConnectorCommand: (value: string) => Promise<string>;
+    togglePromotion: () => Promise<string>;
+  };
+  hosting: {
+    clearBinding: (key: "d1" | "r2") => Promise<string>;
+    /** Current hosting summary line (short project id, binding names). */
+    describe: () => string;
+    setBinding: (key: "d1" | "r2", value: string) => Promise<string>;
+  };
+  release: {
+    addNote: (note: string) => Promise<string>;
+    /** Latest release summary line, or "no releases". */
+    describe: () => string;
+  };
+}
+
+/** Status pane lines shown above the edit menu. */
+export interface SitesEditStatus {
+  configLine: string;
+  hostingLine: string;
+  releaseLine: string;
+}
+
+interface EditMenuItem {
+  description?: string;
+  label: string;
+  value: string;
+}
+
+const EDIT_ITEMS: EditMenuItem[] = [
+  {
+    description: "agent-start guidance + footer",
+    label: "Toggle promotion.enabled",
+    value: "toggle-promotion",
+  },
+  {
+    description: "enable codex exec automation",
+    label: "Set connector.command",
+    value: "set-connector",
+  },
+  {
+    description: "disable connector automation",
+    label: "Clear connector.command",
+    value: "clear-connector",
+  },
+  {
+    description: "override bundle discovery",
+    label: "Set bundle.path",
+    value: "set-bundle",
+  },
+  {
+    description: "auto-discover newest bundle",
+    label: "Clear bundle.path",
+    value: "clear-bundle",
+  },
+  {
+    description: "hosting.json logical binding",
+    label: "Set d1 binding",
+    value: "set-d1",
+  },
+  { label: "Clear d1 binding", value: "clear-d1" },
+  {
+    description: "hosting.json logical binding",
+    label: "Set r2 binding",
+    value: "set-r2",
+  },
+  { label: "Clear r2 binding", value: "clear-r2" },
+  {
+    description: "release log entry",
+    label: "Add note to latest release",
+    value: "release-note",
+  },
+  { label: "Back", value: "back" },
+];
+
+const EDIT_INPUTS: Record<
+  string,
+  { prompt: string; placeholder: string } | null
+> = {
+  "release-note": {
+    placeholder: "verified manually",
+    prompt: "Note for the latest release log entry:",
+  },
+  "set-bundle": {
+    placeholder: "/path/to/bundle",
+    prompt: "bundle.path (absolute path to a Sites bundle root):",
+  },
+  "set-connector": {
+    placeholder: "codex exec --sandbox workspace-write",
+    prompt:
+      "connector.command (space-separated, e.g. codex exec --sandbox workspace-write):",
+  },
+  "set-d1": {
+    placeholder: "DB",
+    prompt: "d1 binding name (e.g. DB, or empty to clear):",
+  },
+  "set-r2": {
+    placeholder: "FILES",
+    prompt: "r2 binding name (e.g. FILES, or empty to clear):",
+  },
+};
+
+/** Input-driven edit actions (set connector / bundle / bindings / note). */
+function runInputEdit(
+  api: SitesEditApi,
+  value: string,
+  trimmed: string
+): Promise<string | null> {
+  if (value === "set-d1" || value === "set-r2") {
+    const key = value === "set-d1" ? "d1" : "r2";
+    return trimmed === ""
+      ? api.hosting.clearBinding(key)
+      : api.hosting.setBinding(key, trimmed);
+  }
+  if (value === "set-connector") {
+    return trimmed === ""
+      ? api.config.clearConnectorCommand()
+      : api.config.setConnectorCommand(trimmed);
+  }
+  if (value === "set-bundle") {
+    return api.config.setBundlePath(trimmed);
+  }
+  if (value === "release-note") {
+    return trimmed === ""
+      ? Promise.resolve("release note: empty note ignored")
+      : api.release.addNote(trimmed);
+  }
+  return Promise.resolve(null);
+}
+
+/** Toggle/clear actions that need no input. */
+function runToggleEdit(
+  api: SitesEditApi,
+  value: string
+): Promise<string | null> {
+  switch (value) {
+    case "toggle-promotion":
+      return api.config.togglePromotion();
+    case "clear-connector":
+      return api.config.clearConnectorCommand();
+    case "clear-bundle":
+      return api.config.clearBundlePath();
+    case "clear-d1":
+      return api.hosting.clearBinding("d1");
+    case "clear-r2":
+      return api.hosting.clearBinding("r2");
+    default:
+      return Promise.resolve(null);
+  }
+}
+
+/** Run one edit action; returns the summary text to notify. */
+async function runEditAction(
+  ctx: SitesMenuContext,
+  api: SitesEditApi,
+  value: string
+): Promise<string | null> {
+  if (value === "back") {
+    return null;
+  }
+  const input = EDIT_INPUTS[value];
+  if (input !== null && input !== undefined) {
+    const entered = await ctx.ui.input(input.prompt, input.placeholder);
+    if (entered === undefined) {
+      return null; // cancelled
+    }
+    return runInputEdit(api, value, entered.trim());
+  }
+  return runToggleEdit(api, value);
+}
+
+/** One edit-menu step; recurses so no await sits inside a loop. */
+async function editMenuStep(
+  ctx: SitesMenuContext,
+  api: SitesEditApi,
+  status: SitesEditStatus,
+  lastResult: string | null
+): Promise<string | null> {
+  const items = menuItems(EDIT_ITEMS);
+  const statusLines = [
+    status.configLine,
+    status.hostingLine,
+    status.releaseLine,
+  ];
+  let choice: string | null | undefined;
+  if (ctx.mode === "tui") {
+    choice = await openTuiMenu(
+      ctx,
+      "Sites — edit settings",
+      items,
+      statusLines
+    );
+  } else if (ctx.hasUI) {
+    choice = await ctx.ui.select("Sites — edit settings", [
+      ...EDIT_ITEMS.map((entry) => entry.label),
+      "Close",
+    ]);
+    const item = EDIT_ITEMS.find((candidate) => candidate.label === choice);
+    choice = item?.value;
+  } else {
+    return (
+      "edit menu (headless): use /sites config get|set or edit .pi/sites.json / .openai/hosting.json directly.\n" +
+      statusLines.join("\n")
+    );
+  }
+  if (choice === undefined || choice === null || choice === "Close") {
+    return lastResult;
+  }
+  const result = await runEditAction(ctx, api, choice);
+  if (result === null) {
+    return lastResult;
+  }
+  status.configLine = api.config.describe();
+  status.hostingLine = api.hosting.describe();
+  status.releaseLine = api.release.describe();
+  return editMenuStep(ctx, api, status, result);
+}
+
+/**
+ * Open the edit menu: change or edit extension config, hosting.json logical
+ * bindings, and release-log notes. TUI mode uses the custom menu component
+ * (ctx.ui.custom + SelectList); other UI modes fall back to a select loop;
+ * headless returns a text summary of what can be edited. Returns the final
+ * summary text (or null when nothing ran).
+ */
+export async function openSitesEditMenu(
+  ctx: SitesMenuContext,
+  api: SitesEditApi,
+  status: SitesEditStatus
+): Promise<string | null> {
+  return await editMenuStep(ctx, api, status, null);
 }

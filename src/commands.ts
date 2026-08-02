@@ -6,8 +6,13 @@ import type {
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
+import {
+  describeConfig,
+  editHostingBindings,
+  editSitesConfig,
+} from "./config-edit.ts";
 import { findSitesBundle } from "./core/bundle.ts";
-import { loadSitesConfig } from "./core/config.ts";
+import { loadSitesConfig, type SitesConfig } from "./core/config.ts";
 import { getGitState } from "./core/git.ts";
 import { readHostingConfig } from "./core/hosting.ts";
 import { runSitesInit } from "./core/init.ts";
@@ -17,8 +22,10 @@ import { runSitesCheck } from "./core/validate.ts";
 import { clearSitesFooter } from "./events.ts";
 import {
   buildMenuStatus,
+  openSitesEditMenu,
   openSitesMenu,
   renderMenuStatus,
+  type SitesEditApi,
   type SitesMenuActions,
 } from "./menu.ts";
 import {
@@ -41,6 +48,8 @@ const SUBCOMMANDS = [
   "release",
   "status",
   "log",
+  "edit",
+  "config",
   "menu",
   "help",
 ] as const;
@@ -565,6 +574,229 @@ async function runStatus(ctx: ExtensionCommandContext): Promise<string> {
   return renderMenuStatus(status);
 }
 
+// --- edit API (config / hosting bindings / release notes) -------------------
+
+function latestReleaseLine(ctx: ExtensionCommandContext): string {
+  const latest = readReleaseEntries(ctx).at(-1);
+  if (latest === undefined) {
+    return "release log: no entries";
+  }
+  return `release log: ${latest.status} ${latest.sha.slice(0, 7)} @ ${latest.timestamp}`;
+}
+
+function buildEditApi(
+  pi: ExtensionAPI,
+  ctx: ExtensionCommandContext
+): SitesEditApi {
+  const configSummary = (): string => describeConfig(loadSitesConfig(ctx.cwd));
+  const hostingSummary = (): string => {
+    const hosting = readHostingConfig(ctx.cwd);
+    if (hosting === null) {
+      return "hosting.json: missing or unparseable";
+    }
+    return `hosting.json: ${hostingLine(hosting.projectId, hosting.d1, hosting.r2)}`;
+  };
+  const applyConfig = async (
+    patch: Parameters<typeof editSitesConfig>[1]
+  ): Promise<string> => {
+    const result = await editSitesConfig(ctx.cwd, patch);
+    if (!result.ok) {
+      return `config edit failed: ${result.error ?? "unknown error"}`;
+    }
+    return `config: ${describeConfig(result.config)}`;
+  };
+  const applyBindings = async (
+    patch: Parameters<typeof editHostingBindings>[1]
+  ): Promise<string> => {
+    const result = await editHostingBindings(ctx.cwd, patch);
+    if (!result.ok) {
+      return `hosting.json edit rejected: ${result.errors.join("; ")}`;
+    }
+    return `hosting.json: ${hostingSummary()}`;
+  };
+  return {
+    config: {
+      clearBundlePath: () => applyConfig({ bundle: { path: null } }),
+      clearConnectorCommand: () =>
+        applyConfig({ connector: { command: null } }),
+      describe: configSummary,
+      setBundlePath: (value) => applyConfig({ bundle: { path: value } }),
+      setConnectorCommand: (value) =>
+        applyConfig({
+          connector: {
+            command:
+              value.trim() === "" ? null : value.trim().split(WHITESPACE_RE),
+          },
+        }),
+      togglePromotion: () => {
+        const next = !loadSitesConfig(ctx.cwd).promotion.enabled;
+        return applyConfig({ promotion: { enabled: next } });
+      },
+    },
+    hosting: {
+      clearBinding: (key) => applyBindings({ [key]: null }),
+      describe: hostingSummary,
+      setBinding: (key, value) => applyBindings({ [key]: value }),
+    },
+    release: {
+      addNote: (note) => {
+        const latest = readReleaseEntries(ctx).at(-1);
+        if (latest === undefined) {
+          return Promise.resolve(
+            "release log: no entries — run /sites release first"
+          );
+        }
+        pi.appendEntry(RELEASE_ENTRY_TYPE, {
+          ...latest,
+          notes: note,
+          timestamp: new Date().toISOString(),
+        });
+        return Promise.resolve(
+          `release log: note added to ${latest.sha.slice(0, 7)}`
+        );
+      },
+      describe: () => latestReleaseLine(ctx),
+    },
+  };
+}
+
+/** /sites edit — open the edit menu (TUI) or headless instructions. */
+async function runEdit(
+  pi: ExtensionAPI,
+  ctx: ExtensionCommandContext
+): Promise<string> {
+  const api = buildEditApi(pi, ctx);
+  const status = {
+    configLine: api.config.describe(),
+    hostingLine: api.hosting.describe(),
+    releaseLine: api.release.describe(),
+  };
+  const result = await openSitesEditMenu(ctx, api, status);
+  if (result === null) {
+    return "edit menu closed";
+  }
+  return result;
+}
+
+// --- /sites config get|set (headless editing) --------------------------------
+
+const CONFIG_KEYS = [
+  "promotion.enabled",
+  "connector.command",
+  "bundle.path",
+] as const;
+
+type ConfigKey = (typeof CONFIG_KEYS)[number];
+
+function configValueLine(config: SitesConfig, key: ConfigKey): string {
+  switch (key) {
+    case "promotion.enabled":
+      return `${key}=${config.promotion.enabled}`;
+    case "connector.command":
+      return `${key}=${config.connector.command === null ? "null" : config.connector.command.join(" ")}`;
+    case "bundle.path":
+      return `${key}=${config.bundle.path ?? "null"}`;
+    default:
+      return `${key}=?`;
+  }
+}
+
+/** Parse `/sites config ...` args into a structured intent. */
+export function parseConfigArgs(args: string): {
+  action: "get" | "set" | "help";
+  key: ConfigKey | null;
+  value: string | null;
+} {
+  const parts = args
+    .trim()
+    .split(WHITESPACE_RE)
+    .filter((part) => part !== "");
+  const [action, key, ...rest] = parts;
+  if (action !== "get" && action !== "set") {
+    return { action: "help", key: null, value: null };
+  }
+  if (key === undefined || !(CONFIG_KEYS as readonly string[]).includes(key)) {
+    return { action: "help", key: null, value: null };
+  }
+  return {
+    action,
+    key: key as ConfigKey,
+    value: action === "set" ? (rest.join(" ") ?? "") : null,
+  };
+}
+
+/** Apply a parsed /sites config set intent; returns the result line. */
+export async function applyConfigSet(
+  dir: string,
+  key: ConfigKey,
+  value: string
+): Promise<{ error: string | null; line: string | null }> {
+  const patch = buildConfigPatch(key, value);
+  if (patch === null) {
+    return {
+      error: `invalid value for ${key}: expected true|false`,
+      line: null,
+    };
+  }
+  const result = await editSitesConfig(dir, patch);
+  if (!result.ok) {
+    return { error: result.error ?? "unknown error", line: null };
+  }
+  return { error: null, line: configValueLine(result.config, key) };
+}
+
+function buildConfigPatch(
+  key: ConfigKey,
+  value: string
+): Parameters<typeof editSitesConfig>[1] | null {
+  if (key === "promotion.enabled") {
+    if (value === "true") {
+      return { promotion: { enabled: true } };
+    }
+    if (value === "false") {
+      return { promotion: { enabled: false } };
+    }
+    return null;
+  }
+  if (key === "connector.command") {
+    if (value === "null" || value === "") {
+      return { connector: { command: null } };
+    }
+    return { connector: { command: value.split(WHITESPACE_RE) } };
+  }
+  if (value === "null" || value === "") {
+    return { bundle: { path: null } };
+  }
+  return { bundle: { path: value } };
+}
+
+async function runConfig(
+  args: string,
+  ctx: ExtensionCommandContext
+): Promise<string> {
+  const intent = parseConfigArgs(args);
+  const config = loadSitesConfig(ctx.cwd);
+  if (intent.action === "help") {
+    return [
+      "usage: /sites config get|set <key> [value]",
+      "keys: promotion.enabled (true|false), connector.command (words or null), bundle.path (path or null)",
+      "current:",
+      ...CONFIG_KEYS.map((key) => `  ${configValueLine(config, key)}`),
+    ].join("\n");
+  }
+  if (intent.key === null) {
+    return "usage: /sites config get|set <key> [value]";
+  }
+  if (intent.action === "get") {
+    return configValueLine(config, intent.key);
+  }
+  const applied = await applyConfigSet(ctx.cwd, intent.key, intent.value ?? "");
+  if (applied.error !== null) {
+    return `config set failed: ${applied.error}`;
+  }
+  return `config: ${applied.line}`;
+}
+
 function printHelp(): string {
   return [
     "pi-sites — ChatGPT Sites workflow",
@@ -577,6 +809,8 @@ function printHelp(): string {
     "  release   open the release desk (exact commit, private-first)",
     "  status    show the current project status",
     "  log       show the persisted release log",
+    "  edit      change or edit settings (config, bindings, release notes)",
+    "  config    get/set config keys headlessly (promotion.enabled, connector.command, bundle.path)",
     "  menu      open the interactive Sites menu (TUI)",
     "  help      this help",
     "",
@@ -648,7 +882,9 @@ function capOutput(text: string): string {
 export function registerSitesCommands(pi: ExtensionAPI): void {
   const runners: Record<string, CommandRunner> = {
     check: (_pi, ctx) => runCheck(ctx),
+    config: (_pi, ctx, rest) => runConfig(rest, ctx),
     diagnose: (_pi, ctx) => runDiagnose(ctx),
+    edit: (piArg, ctx) => runEdit(piArg, ctx),
     init: (_pi, ctx, rest) => runInit(rest, ctx),
     log: (_pi, ctx) => runLog(ctx),
     menu: async (_pi, ctx) => {
@@ -697,6 +933,7 @@ function makeActionsFor(
   return {
     check: () => runCheck(ctx),
     diagnose: () => runDiagnose(ctx),
+    edit: () => runEdit(pi, ctx),
     init: () => runInit("", ctx),
     package: () => runPackage(ctx),
     release: () => runRelease(pi, ctx),

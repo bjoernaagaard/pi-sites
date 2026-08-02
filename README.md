@@ -233,11 +233,30 @@ model only sees tools it can actually use.
 ### The `/sites` command family
 
 `/sites` opens the Sites menu: **Status**, **Init**, **Check**, **Package**,
-**Diagnose**, **Release desk**, and **Close**. Subcommands (`/sites check`,
-`/sites package`, `/sites status`, `/sites log`, …) run a single step
-directly; `/sites menu` reopens the interactive menu. Release-log entries
-persist across sessions via `appendEntry` and render as compact cards in
-the transcript (`/sites log` prints them as text).
+**Diagnose**, **Release desk**, **Edit settings**, and **Close**. Subcommands
+(`/sites check`, `/sites package`, `/sites status`, `/sites log`, …) run a
+single step directly; `/sites menu` reopens the interactive menu.
+Release-log entries persist across sessions via `appendEntry` and render as
+compact cards in the transcript (`/sites log` prints them as text).
+
+### The edit menu — change or edit things
+
+`/sites edit` (or **Edit settings** in the menu) opens a keyboard-driven TUI
+menu built on the pi extension API (`ctx.ui.custom` + `SelectList`): a live
+status pane on top, actions below (`↑↓` navigate, `enter` select, `esc`
+cancel). From it you can change or edit:
+
+- **config** — toggle `promotion.enabled`; set/clear `connector.command`;
+  set/clear `bundle.path` (`.pi/sites.json`);
+- **bindings** — set/clear the `d1`/`r2` logical bindings in
+  `.openai/hosting.json` (validated: unknown keys and secret-like values are
+  rejected, `project_id` preserved);
+- **release log** — add a note to the latest release entry.
+
+Every change refreshes the status pane; nothing is written without your
+confirmation. Headless sessions get the same operations through
+`/sites config get|set <key> [value]` (keys: `promotion.enabled`,
+`connector.command`, `bundle.path`) instead of the menu.
 
 The **release desk** walks the private-first release flow: record the exact
 source commit → local validation green → deployment archive → save a Site
