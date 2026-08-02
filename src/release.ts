@@ -231,6 +231,18 @@ const CONNECTOR_PROMPTS: ReadonlyMap<string, PromptBuilder> = new Map([
     (dir) =>
       `Using the installed Sites plugin, fetch recent production Worker logs for the Site at ${dir} (get_site_worker_logs) and summarize errors on the key path.`,
   ],
+  [
+    "overview",
+    (dir) =>
+      `Using the installed Sites plugin, report the managed state of the Site linked at ${dir}: call list_sites, get_site (using the project_id from .openai/hosting.json), and list_site_versions (newest first). Report: site title, project_id, access level, current deployment status, environment variable names (no values), custom domains, and the newest 5 saved versions with their commit shas.`,
+  ],
+  [
+    "provision",
+    (dir) =>
+      `Using the installed Sites plugin, create the managed Site for the local project at ${dir} with create_site (the project currently has no project_id in .openai/hosting.json). Do not deploy anything. After the call, print exactly one line in this format:
+PROJECT_ID=<the returned project id>
+and nothing else after it.`,
+  ],
 ]);
 
 export function buildConnectorPrompt(
@@ -243,6 +255,22 @@ export function buildConnectorPrompt(
     return null;
   }
   return `${builder(dir, ctx)}${CONNECTOR_PROMPT_SUFFIX}`;
+}
+
+const PROJECT_ID_RE = /PROJECT_ID\s*=\s*([0-9a-fA-F-]{8,})/i;
+
+/**
+ * Extract the project id from a codex exec output produced by the provision
+ * prompt. Returns null when no plausible id is present — never guess.
+ */
+export function parseProjectId(output: string): string | null {
+  const match = PROJECT_ID_RE.exec(output);
+  if (match === null) {
+    return null;
+  }
+  const candidate = match[1];
+  // project ids are UUID-ish; reject clearly-odd values
+  return /^[0-9a-fA-F-]{8,64}$/.test(candidate) ? candidate : null;
 }
 
 // --- connector runner ------------------------------------------------------

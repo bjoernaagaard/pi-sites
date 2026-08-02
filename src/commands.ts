@@ -5,6 +5,7 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { findSitesBundle } from "./core/bundle.ts";
 import { loadSitesConfig } from "./core/config.ts";
 import { getGitState } from "./core/git.ts";
@@ -39,6 +40,7 @@ const SUBCOMMANDS = [
   "diagnose",
   "release",
   "status",
+  "log",
   "menu",
   "help",
 ] as const;
@@ -90,6 +92,48 @@ export function readReleaseEntries(ctx: {
     }
   }
   return entries;
+}
+
+/**
+ * Render the persisted release log as text (newest last, oldest first
+ * reading order). Pure — used by /sites log and unit tests.
+ */
+export function renderReleaseLog(entries: ReleaseEntry[]): string {
+  if (entries.length === 0) {
+    return "release log: no entries";
+  }
+  return entries
+    .map(
+      (entry, index) =>
+        `${index + 1}. ${entry.status} ${entry.sha.slice(0, 7)} @ ${entry.timestamp} [${entry.archive}]`
+    )
+    .join("\n");
+}
+
+async function runLog(ctx: ExtensionCommandContext): Promise<string> {
+  return renderReleaseLog(readReleaseEntries(ctx));
+}
+
+/** Register a TUI entry renderer for release-log entries (transcript cards). */
+export function registerReleaseEntryRenderer(pi: ExtensionAPI): void {
+  pi.registerEntryRenderer(RELEASE_ENTRY_TYPE, (entry, { expanded }, theme) => {
+    const data = entry.data as {
+      archive?: string;
+      notes?: string;
+      sha?: string;
+      status?: string;
+      timestamp?: string;
+    };
+    const line = `release ${data.status ?? "?"} ${(data.sha ?? "").slice(0, 7)} @ ${data.timestamp ?? "?"}`;
+    let text = theme.fg("accent", line);
+    if (expanded) {
+      text += `\n${theme.fg("dim", `archive: ${data.archive ?? "?"}`)}`;
+      if (data.notes !== undefined) {
+        text += `\n${theme.fg("dim", `notes: ${data.notes}`)}`;
+      }
+    }
+    return new Text(text, 0, 0);
+  });
 }
 
 function bundleNotFoundMessage(): string {
@@ -532,6 +576,7 @@ function printHelp(): string {
     "  diagnose  gather local diagnosis facts",
     "  release   open the release desk (exact commit, private-first)",
     "  status    show the current project status",
+    "  log       show the persisted release log",
     "  menu      open the interactive Sites menu (TUI)",
     "  help      this help",
     "",
@@ -605,6 +650,7 @@ export function registerSitesCommands(pi: ExtensionAPI): void {
     check: (_pi, ctx) => runCheck(ctx),
     diagnose: (_pi, ctx) => runDiagnose(ctx),
     init: (_pi, ctx, rest) => runInit(rest, ctx),
+    log: (_pi, ctx) => runLog(ctx),
     menu: async (_pi, ctx) => {
       if (ctx.hasUI) {
         await openSitesMenu(ctx, makeActionsFor(pi, ctx));

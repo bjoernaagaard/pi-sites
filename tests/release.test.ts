@@ -8,6 +8,7 @@ import { test } from "node:test";
 import {
   buildConnectorPrompt,
   buildReleaseLogEntry,
+  parseProjectId,
   planRelease,
   type ReleaseConfig,
   type ReleaseGitState,
@@ -265,4 +266,48 @@ test("summarizeReleasePlan prints a refusal line and step markers", () => {
   assert.ok(clean.includes("○"));
   assert.ok(clean.includes(SHORT_SHA));
   assert.ok(!clean.includes("release refused"));
+});
+
+test("buildConnectorPrompt overview asks for managed state and env names only", () => {
+  const prompt = buildConnectorPrompt("overview", "/proj", {
+    archive: null,
+    sha: null,
+  });
+  assert.ok(prompt !== null);
+  assert.match(prompt, /list_sites/);
+  assert.match(prompt, /get_site/);
+  assert.match(prompt, /list_site_versions/);
+  assert.match(prompt, /environment variable names \(no values\)/);
+  assert.ok(prompt.endsWith(NO_CREDENTIALS_SUFFIX));
+});
+
+test("buildConnectorPrompt provision asks for a single PROJECT_ID line", () => {
+  const prompt = buildConnectorPrompt("provision", "/proj", {
+    archive: null,
+    sha: null,
+  });
+  assert.ok(prompt !== null);
+  assert.match(prompt, /create_site/);
+  assert.match(prompt, /PROJECT_ID=<the returned project id>/);
+  assert.ok(prompt.endsWith(NO_CREDENTIALS_SUFFIX));
+});
+
+test("parseProjectId extracts a UUID-shaped id from connector output", () => {
+  assert.equal(
+    parseProjectId(
+      "some prose\nPROJECT_ID=01234567-89ab-cdef-0123-456789abcdef\nmore"
+    ),
+    "01234567-89ab-cdef-0123-456789abcdef"
+  );
+  assert.equal(
+    parseProjectId("PROJECT_ID = abcdef0123456789"),
+    "abcdef0123456789"
+  );
+});
+
+test("parseProjectId rejects garbage and missing ids", () => {
+  assert.equal(parseProjectId("no id here"), null);
+  assert.equal(parseProjectId("PROJECT_ID="), null);
+  assert.equal(parseProjectId("PROJECT_ID=short"), null);
+  assert.equal(parseProjectId("PROJECT_ID=not a real id !!!"), null);
 });

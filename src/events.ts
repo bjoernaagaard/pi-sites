@@ -9,6 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { applyConnectorToolActivation } from "./connector-tools.ts";
 import { findSitesBundle } from "./core/bundle.ts";
 import { loadSitesConfig } from "./core/config.ts";
 import { isSitesProject, readHostingConfig } from "./core/hosting.ts";
@@ -127,6 +128,11 @@ export function registerSitesEvents(pi: ExtensionAPI): void {
 
   pi.on("session_start", (_event, ctx) => {
     refreshFooter(ctx);
+    try {
+      applyConnectorToolActivation(pi, loadSitesConfig(ctx.cwd));
+    } catch {
+      // activation is best-effort: never break session start
+    }
   });
 
   pi.on("session_shutdown", (_event, ctx) => {

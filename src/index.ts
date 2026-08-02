@@ -16,7 +16,12 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { readReleaseEntries, registerSitesCommands } from "./commands.ts";
+import {
+  readReleaseEntries,
+  registerReleaseEntryRenderer,
+  registerSitesCommands,
+} from "./commands.ts";
+import { registerConnectorTools } from "./connector-tools.ts";
 import { findSitesBundle } from "./core/bundle.ts";
 import { loadSitesConfig } from "./core/config.ts";
 import { getGitState } from "./core/git.ts";
@@ -79,6 +84,13 @@ async function diagnoseText(ctx: ExtensionContext): Promise<string> {
 export default function piSites(pi: ExtensionAPI): void {
   // WS2 — local lifecycle tools (init / check / package).
   registerLifecycleTools(pi);
+
+  // v0.3 — connector tools (registered always, activated via dynamic tools
+  // when connector.command is set — see events.ts session_start).
+  registerConnectorTools(pi);
+
+  // v0.3 — release log renders as transcript cards in the TUI.
+  registerReleaseEntryRenderer(pi);
 
   // WS3 — diagnosis tool (local facts for pairing with Worker-log inspection).
   pi.registerTool({
