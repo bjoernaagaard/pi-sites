@@ -3,7 +3,8 @@
 Portable notes for starting, maintaining, or handing over any [ChatGPT Site](https://learn.chatgpt.com/docs/sites). This guide describes the product contract rather than a particular app, repository, or deployment.
 
 Last checked: 2026-08-02  
-Installed Sites bundle when this guide was written: `0.1.33`
+Installed Sites bundle when this guide was written: `0.1.33`  
+pi-sites extension when this guide was written: `0.1.0` (built for pi `0.83.0`)
 
 ## Use these sources as the authority
 
@@ -193,3 +194,80 @@ Before a new project or a significant upgrade, compare this guide with:
 3. the locally installed Sites plugin under `$HOME/.codex/plugins/cache/openai-bundled/sites/`.
 
 If they disagree, the current official web documentation and the currently installed plugin instructions win. Update the guide with the date and bundle version after validating a material change.
+
+## Using the pi-sites extension
+
+`pi-sites` is a pi extension that wires this field guide into pi sessions: it
+detects ChatGPT Sites projects, registers lifecycle tools, adds a `/sites`
+command family with a release desk, and shows a compact Sites status line in
+the pi footer. It never prints secrets or full project ids — only short,
+bounded facts.
+
+### Install
+
+Two ways to load the extension:
+
+- **npm** — `npm i pi-sites`, then enable the `pi-sites` extension in your pi
+  configuration (package-managed extensions are listed with `pi config`).
+- **from source** — run pi against the extension entry directly:
+
+  ```bash
+  pi -e ./src/index.ts
+  ```
+
+### Tools
+
+| Tool | Use when |
+| --- | --- |
+| `sites_init` | Starting a new ChatGPT Sites project in an empty directory (scaffolds the bundle starter; refuses non-empty targets) |
+| `sites_check` | Before saving a version or deploying, and after any source change — runs the release-readiness checklist (build, hosting.json schema, `.env.example` parity, secrets scan, worker entry, dist artifact, README checklist) |
+| `sites_package` | Producing the deployment archive (tar.gz) for a validated project before saving a version (verifies `dist/server/index.js` and `dist/.openai/hosting.json` inside) |
+| `sites_diagnose` | A deployment misbehaves — local build state, hosting.json, release log, and env parity, plus guided worker-log inspection |
+
+### The `/sites` command family
+
+`/sites` opens the Sites menu: **Status**, **Init**, **Check**, **Package**,
+**Diagnose**, **Release desk**, and **Close**. Subcommands (`/sites check`,
+`/sites package`, `/sites status`, …) run a single step directly; `/sites
+menu` reopens the interactive menu.
+
+The **release desk** walks the private-first release flow: record the exact
+source commit → local validation green → deployment archive → save a Site
+version → deploy privately → verify access/env/domains/logs → promote to
+public only with an explicit decision. With `connector.command` configured,
+control-plane steps can run through `codex exec` with the installed Sites
+plugin — public release is never automated. Without a TUI, `/sites` degrades
+to a printed status summary.
+
+### `.pi/sites.json` configuration
+
+Project-scoped config read from `<cwd>/.pi/sites.json`; a missing or
+malformed file falls back to the defaults, and unknown keys are tolerated.
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `promotion.enabled` | boolean | `true` | Master switch for the agent-start guidance trigger and the footer status line |
+| `connector.command` | `string[]` or `null` | `null` | Optional `codex exec` prefix (e.g. `["codex","exec","--sandbox","workspace-write"]`) that enables connector-backed release desk steps |
+| `bundle.path` | string or `null` | `null` | Explicit Sites plugin bundle root override (default: discover the newest installed bundle) |
+
+### Workflow
+
+```text
+/sites init → /sites check → /sites package → Release desk → /sites diagnose
+```
+
+1. **Init** — scaffold a new project from the bundle starter into an empty
+   target directory.
+2. **Check** — run the release-readiness checklist; fix failures before
+   continuing.
+3. **Package** — produce the deployment archive from the validated build.
+4. **Release desk** — record the source commit, save a Site version, deploy
+   privately first, verify access/env/domains/logs, then promote to public
+   only with an explicit decision.
+5. **Diagnose** — when something misbehaves: build state, hosting.json,
+   release log, and env parity, with guided worker-log inspection.
+
+While a Sites project is open, the pi footer shows
+`sites bundle <version> · proj <id-prefix>`; at agent start the session
+receives a short guidance note (only when the bundle is installed and
+`promotion.enabled` is on).

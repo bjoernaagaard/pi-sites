@@ -121,3 +121,18 @@ Biome's linter will catch most issues automatically. Focus your attention on:
 ---
 
 Most formatting and common issues are automatically fixed by Biome. Run `npm exec -- ultracite fix` before committing to ensure compliance.
+
+---
+
+## Repo rules
+
+- **Testing** — run the unit tests with `node --test tests/` (Node native
+  type stripping; no build step). The integration test skips cleanly when
+  the Sites plugin bundle is absent.
+- **TypeScript** — erasable-only TS: no enums, namespaces, or parameter
+  properties; relative imports use explicit `.ts` extensions
+  (`allowImportingTsExtensions`, no emit).
+- **Commits** — conventional commits (`feat:`, `fix:`, `docs:`, `test:`,
+  `chore:`, …) with descriptive bodies.
+- **Gate** — `npm run check` must be green after the last change (ultracite
+  check + typecheck + package check).
