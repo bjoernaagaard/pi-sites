@@ -100,11 +100,18 @@ function bundleNotFoundMessage(): string {
   );
 }
 
+/** Bundle discovery honoring the .pi/sites.json bundle.path override. */
+function bundleFor(
+  ctx: ExtensionCommandContext
+): ReturnType<typeof findSitesBundle> {
+  return findSitesBundle(loadSitesConfig(ctx.cwd).bundle.path);
+}
+
 async function runInit(
   args: string,
   ctx: ExtensionCommandContext
 ): Promise<string> {
-  const bundle = findSitesBundle();
+  const bundle = bundleFor(ctx);
   if (bundle === null) {
     return bundleNotFoundMessage();
   }
@@ -134,7 +141,7 @@ async function runCheck(ctx: ExtensionCommandContext): Promise<string> {
 }
 
 async function runPackage(ctx: ExtensionCommandContext): Promise<string> {
-  const bundle = findSitesBundle();
+  const bundle = bundleFor(ctx);
   if (bundle === null) {
     return bundleNotFoundMessage();
   }
@@ -193,7 +200,7 @@ async function runDiagnose(ctx: ExtensionCommandContext): Promise<string> {
   const artifactLine = existsSync(distServer)
     ? "build artifact: dist/server/index.js present"
     : "build artifact: missing (run npm run build)";
-  const bundle = findSitesBundle();
+  const bundle = bundleFor(ctx);
   const bundleLine =
     bundle === null
       ? "bundle: missing"
@@ -430,7 +437,7 @@ async function runRelease(
   const lines: string[] = [];
   const git = await getGitState(ctx.cwd);
   const check = await runSitesCheck(ctx.cwd);
-  const bundle = findSitesBundle();
+  const bundle = bundleFor(ctx);
   const archive = join(tmpdir(), `sites-package-${Date.now()}.tar.gz`);
   const packageResult =
     bundle === null

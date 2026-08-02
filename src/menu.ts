@@ -12,6 +12,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { findSitesBundle } from "./core/bundle.ts";
+import { loadSitesConfig } from "./core/config.ts";
 import { isSitesProject, readHostingConfig } from "./core/hosting.ts";
 import { lastLines } from "./core/output.ts";
 
@@ -219,7 +220,7 @@ export async function buildMenuStatus(
   dir: string,
   releaseEntries: ReadonlyArray<{ customType?: string; data?: unknown }>
 ): Promise<SitesMenuStatus> {
-  const bundle = findSitesBundle();
+  const bundle = findSitesBundle(loadSitesConfig(dir).bundle.path);
   return {
     buildArtifact: existsSync(join(dir, "dist", "server", "index.js")),
     bundleVersion: bundle === null ? null : bundle.version,

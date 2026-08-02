@@ -18,6 +18,7 @@ import type {
 import { Type } from "typebox";
 import { readReleaseEntries, registerSitesCommands } from "./commands.ts";
 import { findSitesBundle } from "./core/bundle.ts";
+import { loadSitesConfig } from "./core/config.ts";
 import { getGitState } from "./core/git.ts";
 import { readHostingConfig } from "./core/hosting.ts";
 import { boundText } from "./core/output.ts";
@@ -54,7 +55,7 @@ async function diagnoseText(ctx: ExtensionContext): Promise<string> {
     hosting === null
       ? "hosting.json: missing or unparseable (not a Sites project?)"
       : `hosting.json: ${hostingLine(hosting.projectId, hosting.d1, hosting.r2)}`;
-  const bundle = findSitesBundle();
+  const bundle = findSitesBundle(loadSitesConfig(ctx.cwd).bundle.path);
   const bundleText =
     bundle === null
       ? "bundle: missing"
@@ -89,7 +90,7 @@ export default function piSites(pi: ExtensionAPI): void {
       "deployment, or before contacting support.",
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       const text = await diagnoseText(ctx);
-      const bundle = findSitesBundle();
+      const bundle = findSitesBundle(loadSitesConfig(ctx.cwd).bundle.path);
       return {
         content: [{ text, type: "text" as const }],
         details: {

@@ -33,8 +33,17 @@ const VERSION_RE = /^\d+(\.\d+)+([-+][0-9A-Za-z.-]+)?$/;
  *
  * Never throws; returns null when no usable bundle is found.
  */
-export function findSitesBundle(): SitesBundle | null {
+export function findSitesBundle(
+  overridePath?: string | null
+): SitesBundle | null {
   try {
+    if (
+      overridePath !== undefined &&
+      overridePath !== null &&
+      overridePath !== ""
+    ) {
+      return bundleAt(overridePath);
+    }
     const override = process.env.PI_SITES_BUNDLE;
     if (override !== undefined && override !== "") {
       return bundleAt(override);

@@ -4,6 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import type { SitesBundle } from "./core/bundle.ts";
 import { findSitesBundle } from "./core/bundle.ts";
+import { loadSitesConfig } from "./core/config.ts";
 import { runSitesInit } from "./core/init.ts";
 import { boundText, formatBytes } from "./core/output.ts";
 import { runSitesPackage } from "./core/package.ts";
@@ -16,8 +17,8 @@ const BUNDLE_NOT_FOUND =
 
 const MAX_EVIDENCE_CHARS = 120;
 
-function requireBundle(): SitesBundle {
-  const bundle = findSitesBundle();
+function requireBundle(ctx: { cwd: string }): SitesBundle {
+  const bundle = findSitesBundle(loadSitesConfig(ctx.cwd).bundle.path);
   if (bundle === null) {
     throw new Error(BUNDLE_NOT_FOUND);
   }
@@ -45,7 +46,7 @@ export function registerLifecycleTools(pi: ExtensionAPI): void {
       "Use sites_init when starting a new ChatGPT Sites project in an empty directory, " +
       "or when the user asks to scaffold a Site.",
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const bundle = requireBundle();
+      const bundle = requireBundle(ctx);
       const result = await runSitesInit(params.target ?? ctx.cwd, bundle);
       const lines = [
         result.ok ? "ok" : "failed",
@@ -110,7 +111,7 @@ export function registerLifecycleTools(pi: ExtensionAPI): void {
       "Use sites_package to produce the deployment archive for a validated Sites project " +
       "before saving a version.",
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const bundle = requireBundle();
+      const bundle = requireBundle(ctx);
       const archive =
         params.archive ?? join(tmpdir(), `sites-package-${Date.now()}.tar.gz`);
       const result = await runSitesPackage(

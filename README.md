@@ -236,8 +236,8 @@ source commit → local validation green → deployment archive → save a Site
 version → deploy privately → verify access/env/domains/logs → promote to
 public only with an explicit decision. With `connector.command` configured,
 control-plane steps can run through `codex exec` with the installed Sites
-plugin — public release is never automated. Without a TUI, `/sites` degrades
-to a printed status summary.
+plugin — public release is never automated. Headless sessions print command
+results to stdout (no TUI needed).
 
 ### `.pi/sites.json` configuration
 

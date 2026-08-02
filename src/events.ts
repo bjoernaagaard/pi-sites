@@ -72,7 +72,7 @@ function refreshFooter(ctx: {
       clearSitesFooter(ctx);
       return;
     }
-    const bundle = findSitesBundle();
+    const bundle = findSitesBundle(loadSitesConfig(ctx.cwd).bundle.path);
     const hosting = readHostingConfig(ctx.cwd);
     const text =
       `sites ${bundle === null ? "bundle missing" : `bundle ${bundle.version}`}` +
@@ -101,7 +101,7 @@ export function registerSitesEvents(pi: ExtensionAPI): void {
   pi.on("before_agent_start", async (_event, ctx) => {
     try {
       const config = loadSitesConfig(ctx.cwd);
-      const bundle = findSitesBundle();
+      const bundle = findSitesBundle(config.bundle.path);
       const guidance = buildSitesGuidance(
         ctx.cwd,
         bundle !== null,
