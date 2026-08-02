@@ -1,176 +1,84 @@
-# pi-sites — next iteration research (v0.2 roadmap)
+# pi-sites — v0.3 pass: how native can this be? (tools over docs)
 
-Status: research deliverable for the next iteration of pi-sites.
-Method: fresh official-docs research (web), live Codex CLI probes, and a gap
-analysis against the current extension surface (HEAD `bd3e4d5`) and the
-installed Sites plugin bundle (0.1.33). Every claim is traced; unverifiable
-items are marked `UNVERIFIED` with the reason.
-
-Last checked: 2026-08-02 · pi 0.83.0 · codex CLI 0.146.0 · Sites bundle 0.1.33
+Second final pass on the v0.2 suggestion, from the Pi extension API point of
+view. Question asked: **how much of the roadmap can be native pi extension
+mechanisms instead of documents, checklists, and guided steps?** Answer:
+**nearly all of it.** Below is the native-viability matrix (evidence-backed),
+the pi mechanisms verified live on pi 0.83.0, and the v0.3 tool-first build
+list. This document is deliberately short — the tools are the product, not
+this file.
 
 ---
 
-## 1. Evidence: current official documentation state
+## 1. Native-viability matrix (capability → pi mechanism → verdict)
 
-1. **Developer guide** (`learn.chatgpt.com/docs/sites`, mirrored for
-   developers at `developers.openai.com/codex/sites` — `UNVERIFIED` direct
-   fetch: pages intermittently 403/load-fail; content below comes from
-   search-summary corroboration): Sites shipped in **public beta as part of
-   the ChatGPT Work launch (2026-07-09)**, replacing the old Canvas
-   side-panel flow — ChatGPT now creates, hosts, versions, and serves the
-   result at a real URL. Availability first on Pro, Pro Lite, Enterprise,
-   Edu; Plus/Business followed; not Free/Go; not EEA/Switzerland/UK at
-   launch.
-2. **Core contract unchanged** (matches the pi-sites field guide):
-   `.openai/hosting.json` holds only `project_id` + logical `d1`/`r2`
-   binding names; two-stage publish (Save version → Deploy version); every
-   deployment URL is a production URL; managed env values/secrets in Site
-   settings (never in prompts, files, or hosting.json); saved versions map
-   to Git commits for local projects; D1 (SQLite) + R2 on Cloudflare
-   Workers; identity via workspace headers + Sign in with ChatGPT; custom
-   domains via DNS records (not in Enterprise at launch); unsupported:
-   Node servers, external DBs, WebSockets, background/scheduled jobs; no
-   data or inference residency at launch; prohibited: payment-card
-   processing, PHI, children under 13, malware.
-3. **New since the field guide was written**: **Analytics** (unique
-   visitors, page views, trends; non-Enterprise) — surfaced in-product, not
-   in the Help Center. `UNVERIFIED` exact location/format (no official
-   article; in-product only).
-4. **Help Center collection** (help.openai.com/en/collections/20001370)
-   contains 5 articles: creating/managing Sites (incl. custom-domain setup
-   steps: Settings → Add domain → DNS records → refresh status), managing
-   Sites for a workspace (custom domains NOT available in Enterprise at
-   launch), data-protection compliance, privacy-policy preparation,
-   responsibilities. No analytics article.
-5. **Automation surface unchanged**: the developer guide still states there
-   is no standalone Sites CLI management view — create/save/deploy/manage
-   happens in ChatGPT web/desktop, or through Codex with the Sites plugin.
-   No public REST/MCP API for the control plane is documented anywhere
-   official (`UNVERIFIED` as an official "no API" statement — absence of
-   documentation only).
-6. **Sites plugin versioning**: the plugin is proprietary and distributed
-   only through OpenAI's plugin marketplace. `openai/openai` repo does not
-   exist (404); `openai/plugins` is a curated examples collection that does
-   not include Sites. **No public source for a newer version than the
-   installed 0.1.33** (`UNVERIFIED` whether a newer bundle exists; the
-   marketplace pin on this machine is 0.1.33).
+Every row names the exact pi 0.83.0 API that makes the capability native.
+"B" = bridge (must shell out to `codex exec` for the control plane — pi has
+no direct connector); everything else is pure extension.
 
-## 2. Evidence: the Codex CLI experience (live probes, 2026-08-02)
+| v0.2 item | Pi-native mechanism | Verdict |
+| --- | --- | --- |
+| Release log traceability | `pi.appendEntry` + **`pi.registerEntryRenderer`** (transcript cards) + `/sites log` | ✅ **implemented** in this pass |
+| Connector tools hidden until usable | **dynamic tools**: register always, `pi.setActiveTools` filter at `session_start`, activate when `connector.command` set | ✅ **implemented** (`sites_overview`, `sites_provision`); live-verified: model sees 4 tools without flag, 6 with |
+| Create/connect managed Site (`create_site` → `project_id`) | `sites_provision` tool (B): `runConnectorStep` + `parseProjectId` + `withFileMutationQueue` write | ✅ **implemented**; live connector run UNVERIFIED (needs a real site) |
+| Managed-side state (sites, versions, env names, domains) | `sites_overview` tool (B) with bounded output + machine-readable details | ✅ **implemented**; live run UNVERIFIED (needs a real site) |
+| Save version | `sites_release`-desk connector step (B) — upgrade runner to `codex exec --json` + `--ephemeral`; parse `item.completed` | 📋 spec'd (runner exists; structured parsing next) |
+| Deploy private + **status polling** | desk step (B) → poll `get_deployment_status`, capture `deployedUrl` into the release-log entry | 📋 spec'd; live UNVERIFIED |
+| Env-name parity vs control plane | `sites_env_parity` tool (B): `get_environment_variables` names vs `.env.example` — names only | 📋 spec'd |
+| Custom domains | `sites_domain` tool (B): add/refresh/remove + DNS records display | 📋 spec'd |
+| Worker logs | `sites_logs` tool (B): `get_site_worker_logs` summary | 📋 spec'd (desk step exists today) |
+| Local preview | `sites_preview` command: `npm run dev`, print Local URL (pure pi: `pi.exec`) | 📋 spec'd |
+| Starter's own tests (`npm test`) | extra `sites_check` item (pure pi) | 📋 spec'd |
+| Analytics (new 2026 capability) | guided step only — no pi data path; keep as one desk line, not a doc | 📋 minimal |
+| Desktop-app automation | `codex app-server`/`remote-control` — experimental, protocol unstable | ⏸ park (UNVERIFIED) |
+| MCP bridge | `codex mcp-server` exposes only `codex`/`codex-reply` — connector NOT exported | ⛔ not viable today (revisit `enable_mcp_apps`) |
+| Field-guide/checklist docs | keep only README field guide; release checklist lives INSIDE `sites_check` (15 items with evidence) — not in a doc | ✅ already true |
+| Skill file | none — tool `description` + `promptGuidelines` are the guidance | ✅ already true |
 
-`codex` CLI 0.146.0, logged in via ChatGPT, Sites plugin installed+enabled
-(`codex plugin list` → `sites@openai-bundled 0.1.33`).
+## 2. Pi mechanisms verified live this pass (pi 0.83.0, print/RPC modes)
 
-1. **Connector surface (re-verified, machine-readable)**: `codex exec
-   --json` exposes the full connector to agent sessions under
-   `mcp__codex_apps__sites_` — 20 functions:
-   `add_custom_domain`, `create_site`,
-   `create_source_repository_write_credential`, `deploy_private_site_version`,
-   `deploy_site_version`, `generate_siwc_bypass_token`,
-   `get_deployment_status`, `get_environment_variables`, `get_site`,
-   `get_site_version`, `get_site_worker_logs`, `list_custom_domains`,
-   `list_site_versions`, `list_sites`, `refresh_custom_domain_status`,
-   `remove_custom_domain`, `save_site_version`,
-   `update_environment_variables`, `update_site_access`,
-   `update_site_metadata`.
-   These are the documented connector functions of the official plugin —
-   the only sanctioned automation path from a terminal.
-2. **Automation ergonomics (new flags, not yet used by pi-sites)**:
-   `codex exec --json` (event stream with `item.completed` + token usage —
-   ideal for machine consumption), `--output-schema <FILE>` (structured
-   final output), `-o/--output-last-message <FILE>`, `--ephemeral` (clean
-   session), `--add-dir <DIR>`, `--profile`, `--skip-git-repo-check`,
-   `-i/--image`, `-s/--sandbox`. Plus `codex exec resume [ID|--last]
-   [PROMPT]` for continuing long-running work.
-3. **MCP bridge is NOT available today**: `codex mcp-server` exposes only
-   two generic tools (`codex`, `codex-reply` — run/continue a Codex
-   session) — the connector functions are NOT exported over MCP. The
-   `enable_mcp_apps` feature flag exists but is `under development`.
-4. **Experimental surfaces**: `codex app-server` (daemon/proxy + TS/schema
-   generation for the app-server protocol) and `codex remote-control`
-   (start/stop/pair) — the machinery behind the ChatGPT desktop app.
-   Potentially a future path to drive the desktop app's Sites UI from pi;
-   experimental, no protocol stability.
-5. **Cloud tasks**: `codex cloud exec --env <ENV_ID> <QUERY>` +
-   status/list/apply/diff — experimental; could offload long deploy flows
-   to Codex Cloud, but `UNVERIFIED` whether Cloud sessions load the Sites
-   plugin connector.
-6. **Feature flags relevant to Sites**: `apps` (stable — the connector
-   mechanism), `in_app_browser` (stable — open_in_codex), `image_generation`
-   (stable), `goals` (stable), `enable_mcp_apps` (under development).
+| Mechanism | Evidence |
+| --- | --- |
+| `pi.getAllTools` / `pi.setActiveTools` (additive, filter at `session_start`) | probe extension: tool appears in `allTools`; activation set changes; then live: model-visible tool list = 4 sites_* tools (flag off) vs 6 (flag on) |
+| `pi.appendEntry` → `ctx.sessionManager.getEntries()` round trip | probe + `/sites release` then `/sites log` in one RPC session: `1. planned 223c339 @ 2026-08-02T19:24:51.300Z [archive]` |
+| `pi.registerFlag` / `pi.getFlag` | probe: default false, true when `--probe-flag` passed |
+| `pi.registerEntryRenderer` / `pi.registerShortcut` | accepted at registration (TUI rendering itself headless-UNVERIFIED — RPC `custom()` returns undefined by design) |
+| `codex exec --json` machine output | captured `item.completed` payload with the 20 `mcp__codex_apps__sites_` functions (0.146.0) |
 
-## 3. Gap analysis: current pi-sites vs the full workflow
+## 3. v0.3 build list (tool-first; docs stay minimal)
 
-| # | Workflow step | pi-sites today | Next iteration |
-| --- | --- | --- | --- |
-| 1 | Scaffold starter | `sites_init` (bundle script) | keep |
-| 2 | Build + local checklist | `sites_check` (build, hosting.json, env parity, secrets, worker, dist, README checklist) | add `npm test` item (the starter ships `tests/rendered-html.test.mjs` via `npm test`) |
-| 3 | Package archive | `sites_package` (bundle script) | keep |
-| 4 | Create/connect the managed Site | **gap**: status shows "no project_id"; nothing provisions it | `sites_provision` behind `connector.command`: `create_site` → persist `project_id` into `.openai/hosting.json` (the plugin's documented flow) |
-| 5 | Save version | guided step + optional `codex exec` step | keep; structured result via `--json`/`--output-schema` |
-| 6 | Deploy private | guided + optional connector step | **status polling**: after deploy, `get_deployment_status` until settled; capture deployed URL into the release log entry |
-| 7 | Access / sharing | guided step (settings) | optional `update_site_access` + `list_available_access_groups`-style guided note; connector step |
-| 8 | Managed env values | guided step only; local parity only | **control-plane env-name parity**: `get_environment_variables` (names only) vs `.env.example` — the docs' "works locally, fails when deployed" guard, now enforced |
-| 9 | Custom domains | guided step | optional connector steps: add/refresh/remove + DNS-record display |
-| 10 | Analytics | **gap** (new 2026 capability) | guided step: open the Site's analytics view after deploy; `UNVERIFIED` exact in-product location |
-| 11 | Worker logs / diagnosis | local `sites_diagnose` + guided | keep; optional `get_site_worker_logs` connector step (already in desk) |
-| 12 | Site overview | **gap** | `sites_overview` behind flag: `list_sites` / `get_site` / `list_site_versions` → bounded status of the managed side |
-| 13 | Release traceability | `appendEntry` log (sha, archive, status) | extend entries with `deployedUrl`, `versionId`, `projectId`; add `/sites log` view |
-| 14 | Preview / browser handoff | none (bundle skill uses `open_in_codex` + dev server) | `sites_preview` command: start `npm run dev`, print the Local URL, guidance to open it (pi-side; no browser tool) |
-| 15 | Social card / imagegen / screenshots | out of scope (bundle/imagegen-owned) | record as bundle-owned, never reimplement |
+Implemented in this pass (tests 60 → 69, gate green):
+- `sites_overview`, `sites_provision` — connector tools, always registered,
+  activated only with `connector.command` (dynamic-tools pattern).
+- Release-log entry renderer (TUI transcript cards) + `/sites log` subcommand.
+- `parseProjectId` + provision/overview connector prompts in `src/release.ts`.
 
-## 4. Proposed v0.2 scope (prioritized)
+Next build (each is a small, testable slice):
+1. **Structured connector runner** — `codex exec --json` (+ `--ephemeral`),
+   parse `item.completed` text; fall back to plain mode. Replaces raw-output
+   handling in `runConnectorStep`.
+2. **Deploy-polling step** — after a connector private deploy, poll
+   `get_deployment_status`; write `deployedUrl` + `versionId` into the
+   release-log entry; `/sites log` renders them.
+3. **`sites_env_parity`** — control-plane env NAME parity vs `.env.example`
+   (never values); integrates into `sites_check` as an extra item when the
+   connector is active.
+4. **`sites_domain`** — add/refresh/remove custom domains (B).
+5. **`sites_preview`** — `npm run dev` + Local URL; `sites_check` gains the
+   starter `npm test` item.
+6. **Release desk → custom TUI component** (`ctx.ui.custom` step list with
+   keys) replacing the select loop — headless fallback stays text.
 
-**P1 — connector reliability & provisioning (flag-gated, `connector.command`):**
-1. `sites_provision`: create the managed Site via `create_site` (codex exec),
-   persist the returned `project_id` into `.openai/hosting.json`, record it.
-   Acceptance: unit tests for the prompt/parse; live UNVERIFIED without a
-   real site.
-2. Structured connector runner: switch `runConnectorStep` to
-   `codex exec --json` (+ `--ephemeral`), parse `item.completed`, bound
-   output; optional `--output-schema` for deploy results.
-3. Deploy-status step in the release desk: after a connector private
-   deploy, poll `get_deployment_status` and write the deployed URL into the
-   release log entry (`appendEntry`).
-4. Control-plane env-name parity check in `sites_check` (behind flag):
-   `get_environment_variables` names vs `.env.example` names; report
-   missing/drifted names, never values.
+## 4. Docs that stay / go
 
-**P2 — surface completion (no new dependencies):**
-5. `npm test` item in `sites_check` (starter ships rendered-HTML tests;
-   skip cleanly when the project has no test script).
-6. `sites_preview` command: `npm run dev` + Local URL output.
-7. Custom-domain connector steps (add/refresh/remove) in the release desk.
-8. Analytics guided step (post-deploy checklist).
+- Stay: README field guide (product contract) + this file (roadmap, lean).
+- Go: nothing new — the v0.2 "guided steps" language is replaced by tool
+  specs; `sites_check` already carries the release checklist as code.
 
-**P3 — evaluate later (recorded, not committed):**
-9. Desktop-app automation via `codex app-server`/`remote-control`
-   (experimental; `UNVERIFIED` protocol stability).
-10. MCP bridge via `codex mcp-server` — **not viable today** (only
-    `codex`/`codex-reply` tools); revisit when `enable_mcp_apps` matures.
-11. Codex Cloud offload (`codex cloud exec`) — `UNVERIFIED` plugin/connector
-    availability in Cloud sessions.
+## 5. Open questions
 
-**Explicitly out of scope** (bundle-owned, proprietary): imagegen social
-cards, in-app preview (`open_in_codex`), `public/screenshot.jpeg` capture,
-anything that copies bundle skill content.
-
-## 5. Open questions for the operator
-
-- Should connector features stay strictly behind `connector.command`
-  (default off), or get a per-feature opt-in (`connector.provision`,
-  `connector.overview`)? Current design: one flag, default off.
-- Is a real end-to-end connector verification acceptable on a throwaway
-  Site (needed to move P1.1/P1.3 from unit-tested to live-verified)?
-- Prioritize `sites_overview` (managed-side inventory) over analytics
-  guidance?
-
-## 6. Verification notes
-
-- All codex CLI claims in §2 were produced by live probes on this machine
-  (0.146.0): `--help` surfaces, `codex features list`, `codex mcp-server`
-  tools/list probe (2 tools), `codex exec --json` connector enumeration
-  (20 functions, `item.completed` payload captured to file).
-- Web claims in §1 are search-corroborated; direct fetches of
-  learn.chatgpt.com / developers.openai.com intermittently failed
-  (403/load errors) — marked accordingly. Nothing in this document was
-  fabricated; anything not directly observed is marked `UNVERIFIED`.
+- Live connector verification on a throwaway real Site (P1.2/1.3) —
+  acceptable?
+- Should `sites_provision` require an explicit `--create` confirmation flag
+  (it mutates the control plane)?
+- Park `codex mcp-server` bridge until `enable_mcp_apps` matures — agreed?

@@ -223,13 +223,21 @@ Two ways to load the extension:
 | `sites_check` | Before saving a version or deploying, and after any source change — runs the release-readiness checklist (build, hosting.json schema, `.env.example` parity, secrets scan, worker entry, dist artifact, README checklist) |
 | `sites_package` | Producing the deployment archive (tar.gz) for a validated project before saving a version (verifies `dist/server/index.js` and `dist/.openai/hosting.json` inside) |
 | `sites_diagnose` | A deployment misbehaves — local build state, hosting.json, release log, and env parity, plus guided worker-log inspection |
+| `sites_overview` | What Sites exist, what's deployed, or the managed state of the current project — appears automatically when `connector.command` is configured |
+| `sites_provision` | The project has no `project_id` yet and needs to be connected to a managed Site (creates it via the connector, writes `project_id` into `.openai/hosting.json`) — appears automatically when `connector.command` is configured |
+
+Connector-backed tools (`sites_overview`, `sites_provision`) are registered but kept
+out of the active tool set unless `.pi/sites.json` sets `connector.command` — the
+model only sees tools it can actually use.
 
 ### The `/sites` command family
 
 `/sites` opens the Sites menu: **Status**, **Init**, **Check**, **Package**,
 **Diagnose**, **Release desk**, and **Close**. Subcommands (`/sites check`,
-`/sites package`, `/sites status`, …) run a single step directly; `/sites
-menu` reopens the interactive menu.
+`/sites package`, `/sites status`, `/sites log`, …) run a single step
+directly; `/sites menu` reopens the interactive menu. Release-log entries
+persist across sessions via `appendEntry` and render as compact cards in
+the transcript (`/sites log` prints them as text).
 
 The **release desk** walks the private-first release flow: record the exact
 source commit → local validation green → deployment archive → save a Site
