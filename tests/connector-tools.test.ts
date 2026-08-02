@@ -9,6 +9,9 @@ import { connectorToolSet } from "../src/connector-tools.ts";
 
 const TS = "2026-08-02T12:00:00.000Z";
 
+const LOG_ENTRY_RE =
+  /1\. planned 0123456 @ 2026-08-02T12:00:00\.000Z \[\S+a\.tar\.gz\]/;
+
 test("connectorToolSet removes connector tools when disabled", () => {
   const active = [
     "read",
@@ -55,10 +58,7 @@ test("renderReleaseLog formats entries newest-last and handles empty", () => {
       timestamp: TS,
     },
   ]);
-  assert.match(
-    text,
-    /1\. planned 0123456 @ 2026-08-02T12:00:00\.000Z \[\S+a\.tar\.gz\]/
-  );
+  assert.match(text, LOG_ENTRY_RE);
 });
 
 test("renderReleaseLog is pure and ordered", () => {

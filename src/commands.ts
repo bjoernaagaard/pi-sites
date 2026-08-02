@@ -110,8 +110,8 @@ export function renderReleaseLog(entries: ReleaseEntry[]): string {
     .join("\n");
 }
 
-async function runLog(ctx: ExtensionCommandContext): Promise<string> {
-  return renderReleaseLog(readReleaseEntries(ctx));
+function runLog(ctx: ExtensionCommandContext): Promise<string> {
+  return Promise.resolve(renderReleaseLog(readReleaseEntries(ctx)));
 }
 
 /** Register a TUI entry renderer for release-log entries (transcript cards). */

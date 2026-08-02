@@ -268,16 +268,23 @@ test("summarizeReleasePlan prints a refusal line and step markers", () => {
   assert.ok(!clean.includes("release refused"));
 });
 
+const OVERVIEW_LIST_SITES_RE = /list_sites/;
+const OVERVIEW_GET_SITE_RE = /get_site/;
+const OVERVIEW_LIST_VERSIONS_RE = /list_site_versions/;
+const OVERVIEW_ENV_NAMES_RE = /environment variable names \(no values\)/;
+const PROVISION_CREATE_SITE_RE = /create_site/;
+const PROVISION_ID_LINE_RE = /PROJECT_ID=<the returned project id>/;
+
 test("buildConnectorPrompt overview asks for managed state and env names only", () => {
   const prompt = buildConnectorPrompt("overview", "/proj", {
     archive: null,
     sha: null,
   });
   assert.ok(prompt !== null);
-  assert.match(prompt, /list_sites/);
-  assert.match(prompt, /get_site/);
-  assert.match(prompt, /list_site_versions/);
-  assert.match(prompt, /environment variable names \(no values\)/);
+  assert.match(prompt, OVERVIEW_LIST_SITES_RE);
+  assert.match(prompt, OVERVIEW_GET_SITE_RE);
+  assert.match(prompt, OVERVIEW_LIST_VERSIONS_RE);
+  assert.match(prompt, OVERVIEW_ENV_NAMES_RE);
   assert.ok(prompt.endsWith(NO_CREDENTIALS_SUFFIX));
 });
 
@@ -287,8 +294,8 @@ test("buildConnectorPrompt provision asks for a single PROJECT_ID line", () => {
     sha: null,
   });
   assert.ok(prompt !== null);
-  assert.match(prompt, /create_site/);
-  assert.match(prompt, /PROJECT_ID=<the returned project id>/);
+  assert.match(prompt, PROVISION_CREATE_SITE_RE);
+  assert.match(prompt, PROVISION_ID_LINE_RE);
   assert.ok(prompt.endsWith(NO_CREDENTIALS_SUFFIX));
 });
 

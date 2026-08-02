@@ -258,6 +258,7 @@ export function buildConnectorPrompt(
 }
 
 const PROJECT_ID_RE = /PROJECT_ID\s*=\s*([0-9a-fA-F-]{8,})/i;
+const PLAUSIBLE_ID_RE = /^[0-9a-fA-F-]{8,64}$/;
 
 /**
  * Extract the project id from a codex exec output produced by the provision
@@ -268,9 +269,9 @@ export function parseProjectId(output: string): string | null {
   if (match === null) {
     return null;
   }
-  const candidate = match[1];
+  const { 1: candidate } = match;
   // project ids are UUID-ish; reject clearly-odd values
-  return /^[0-9a-fA-F-]{8,64}$/.test(candidate) ? candidate : null;
+  return PLAUSIBLE_ID_RE.test(candidate) ? candidate : null;
 }
 
 // --- connector runner ------------------------------------------------------

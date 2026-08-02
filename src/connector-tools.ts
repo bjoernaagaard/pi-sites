@@ -9,7 +9,7 @@
 // the bundle/credentials are missing; no undocumented endpoint is ever used.
 // ---------------------------------------------------------------------------
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
@@ -172,14 +172,14 @@ export function registerConnectorTools(pi: ExtensionAPI): void {
       }
       const hostingPath = join(dir, ".openai", "hosting.json");
       await withFileMutationQueue(hostingPath, async () => {
-        const raw: unknown = JSON.parse(readFileSync(hostingPath, "utf8"));
+        const raw: unknown = JSON.parse(await readFile(hostingPath, "utf8"));
         const next = {
           ...(typeof raw === "object" && raw !== null && !Array.isArray(raw)
             ? (raw as Record<string, unknown>)
             : {}),
           project_id: projectId,
         };
-        writeFileSync(
+        await writeFile(
           hostingPath,
           `${JSON.stringify(next, null, 2)}\n`,
           "utf8"
