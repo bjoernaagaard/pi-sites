@@ -1,6 +1,6 @@
 {
-  "name": "pi-sites",
-  "version": "0.1.0",
+  "name": "@juvio15/pi-sites",
+  "version": "0.1.1",
   "description": "ChatGPT Sites tooling for Pi (early stage)",
   "keywords": [
     "pi-package",
