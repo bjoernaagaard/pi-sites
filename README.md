@@ -75,7 +75,7 @@ npm run build
 
 You do not need the desktop app for those tasks. For Sites-specific project management, use ChatGPT on the web at [chatgpt.com/sites](https://chatgpt.com/sites) when the desktop app is unavailable. There is no separate public Sites CLI or standalone public MCP server that replaces the managed Sites control plane.
 
-If you have neither the desktop app nor access to ChatGPT web, you can still make ordinary source changes, run the build, commit them, and prepare a release. You will not be able to save a Sites version, change Site access/settings, or deploy to Sites until you regain control-plane access. Keep a private Git remote so the work is safe and independently transferable.
+If you have neither the desktop app nor access to ChatGPT web, you can still make ordinary source changes and run the build. You can commit them and prepare a release. You will not be able to save a Sites version, change Site access or settings, or deploy to Sites until you regain control-plane access. Keep a private Git remote so the work is safe and independently transferable.
 
 ## Publishing lifecycle
 
@@ -136,7 +136,7 @@ Sites are designed for web applications that fit the supported Worker/Vite runti
 - any Node/server framework feature outside the supported runtime;
 - regulated or highly sensitive data storage without an explicit product/security review.
 
-For recurring polling, monitoring, queues, scheduled collectors, or always-on alerting, use an external worker/automation service that writes to the supported data layer or calls a carefully authenticated endpoint. Sites can be the dashboard and the control interface, but it should not be assumed to be the scheduler.
+For recurring polling, monitoring, queues, scheduled collectors, or always-on alerting, use an external worker or automation service. The service writes to the supported data layer or calls a carefully authenticated endpoint. Sites can be the dashboard and the control interface; the scheduler is a separate service.
 
 ## Observability and release checklist
 
@@ -183,7 +183,7 @@ Those are managed product capabilities, not a portable external API contract. Do
 5. Recreate managed environment values and D1/R2 bindings; restore/migrate data only through approved procedures.
 6. Save and deploy a private version, then validate before routing a domain or making the Site public.
 
-A move to another hosting provider is a normal application migration: source code may move readily, but Sites-managed identity, deployment history, environment values, D1/R2 resources, domain settings, and access policies need their own explicit migration plan.
+A move to another hosting provider is a normal application migration. Source code may move readily. Sites-managed identity, deployment history, environment values, D1/R2 resources, domain settings, and access policies need their own explicit migration plan.
 
 ## Updating this guide
 
@@ -207,7 +207,7 @@ bounded facts.
 
 Two ways to load the extension:
 
-- **npm** — `npm i pi-sites`, then enable the `pi-sites` extension in your pi
+- **npm** — `npm i @juvio15/pi-sites`, then enable the `pi-sites` extension in your pi
   configuration (package-managed extensions are listed with `pi config`).
 - **from source** — run pi against the extension entry directly:
 
@@ -223,7 +223,7 @@ Two ways to load the extension:
 | `sites_check` | Before saving a version or deploying, and after any source change — runs the release-readiness checklist (build, hosting.json schema, `.env.example` parity, secrets scan, worker entry, dist artifact, README checklist) |
 | `sites_package` | Producing the deployment archive (tar.gz) for a validated project before saving a version (verifies `dist/server/index.js` and `dist/.openai/hosting.json` inside) |
 | `sites_diagnose` | A deployment misbehaves — local build state, hosting.json, release log, and env parity, plus guided worker-log inspection |
-| `sites_overview` | What Sites exist, what's deployed, or the managed state of the current project — appears automatically when `connector.command` is configured |
+| `sites_overview` | What Sites exist, what is deployed, or the managed state of the current project — appears automatically when `connector.command` is configured |
 | `sites_provision` | The project has no `project_id` yet and needs to be connected to a managed Site (creates it via the connector, writes `project_id` into `.openai/hosting.json`) — appears automatically when `connector.command` is configured |
 
 Connector-backed tools (`sites_overview`, `sites_provision`) are registered but kept

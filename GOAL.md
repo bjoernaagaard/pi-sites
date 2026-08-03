@@ -47,8 +47,9 @@ OpenAI (ChatGPT web/desktop, or the Codex Sites plugin).
    persistence, custom rendering).
 
 Out of scope: the other repos in `/Users/bsa/Development/pi` (pi-ast-grep,
-pi-chimera, pi-codemode, pi-seek, pi-subagents) — do not touch them. The
-workspace-root `GOAL.md` is a different goal; ignore it.
+pi-chimera, pi-codemode, pi-seek, pi-subagents). Keep this goal's changes
+inside pi-sites. The workspace-root `GOAL.md` is a different goal; this
+goal works from this file.
 
 ### Session and tools
 
@@ -86,7 +87,7 @@ workflow, from empty directory to deployed private site:
 
 ### 2.1 Multi-agent discipline
 
-Plan work as parallel workstreams and delegate. Do not work single-threaded.
+Plan work as parallel workstreams and delegate. Work in parallel streams.
 
 - Spawn **scout** children for research (read-only) with narrow, explicit
   questions (bundle inventory, official-docs extraction, pi-API surface).
@@ -105,7 +106,7 @@ report.
 ### 2.2 Research and analysis discipline
 
 - Use `eval` cells for multi-step batches (file inventories, parallel reads,
-  greps). Never chain single tool calls when one cell can do the step.
+  greps). Batch single tool calls into one cell when one cell can do the step.
 - Use `ds_web_search` for official-docs and product facts; record sources.
 - Use `ast_grep_outline` before reading unfamiliar files and
   `ast_grep_run`/`ast_grep_scan` for structural questions. Record at least
@@ -116,8 +117,8 @@ report.
 - Gate: `npm run check` (ultracite + typecheck + package dry-run) must pass
   after the last change. Conventional commits (`feat:`, `fix:`, `docs:`,
   `test:`, `chore:`, `refactor:`), one logical change per commit.
-- Do not modify the other repos in the workspace.
-- Do not add runtime dependencies outside the scaffold's existing set
+- Limit changes to this repository.
+- Add runtime dependencies only within the scaffold's existing set
   (peer deps + dev deps) unless a workstream authorizes it with recorded
   rationale.
 - The extension must stay standalone (`pi -ne -e ./src/index.ts`).
@@ -128,23 +129,24 @@ report.
 
 The Sites plugin (`openai-bundled/sites`) is **Proprietary** licensed:
 
-- NEVER copy its code, skills text, templates, or assets into pi-sites.
+- Use the bundle as reference and invoked binary only. Keep its code,
+  skills text, templates, and assets out of pi-sites.
 - The extension may **invoke** its scripts (`init-site.sh`,
   `package-site.sh`) when present, and may **cite** its skill guidance.
 - If a feature needs the bundle and it is absent, degrade gracefully with a
-  clear message (install path hint), never a crash, never an invented
-  reimplementation.
+  clear message (install path hint). The extension does not crash and does
+  not invent a reimplementation.
 - Record which bundle version the extension was verified against
   (`0.1.33` at goal start) and re-verify before finalizing.
 
 ### 2.5 Connector discipline (the managed control plane)
 
 - The Sites connector (`.app.json` connector id) is a **managed product
-  capability of ChatGPT/Codex, not a public API**. Do NOT build automation
-  that relies on undocumented connector method names or endpoints.
-- Secret handling: per-command source-write credentials must never end up in
-  remote URLs, Git configuration, commits, or `.env`; only variable names
-  and safe examples go in `.env.example`. Managed values live in Sites.
+  capability of ChatGPT/Codex, not a public API**. Build automation only
+  on documented connector method names and endpoints.
+- Secret handling: keep per-command source-write credentials out of
+  remote URLs, Git configuration, commits, and `.env`; put only variable
+  names and safe examples in `.env.example`. Managed values live in Sites.
 - Private-first is the default release posture. Public access is a
   deliberate policy change.
 
@@ -198,7 +200,7 @@ facts, not assumptions.
    viable path). Include the connector-availability question: can the
    control plane be driven from pi at all (ChatGPT web guidance, desktop
    app, or a `codex` CLI invocation when the plugin is installed)? Record
-   findings — do not guess.
+   only findings the sources support.
 4. **Write `docs/design.md`.** The capability matrix (capability →
    surface → implementation plan → verification), the bundle-version
    record, connector findings, and every decision with rationale. Update
@@ -231,7 +233,7 @@ do without the control plane.
 
 1. **Project init tool** (`sites_init` or similar): invokes the plugin's
    `init-site.sh` into a target directory with the same emptiness checks
-   (never a second initializer, never overwrite a non-empty target).
+   (it runs one initializer; a non-empty target stays intact).
    Bounded output; clear error when the bundle is missing (hint the
    install path, no crash). Document the generated layout
    (`package.json`, `vite.config.*`, `worker/`, `.openai/hosting.json`,
@@ -279,10 +281,10 @@ do without the control plane.
 
 ### 5.1 Objective
 
-Make the save-version → private-deploy → access/domain → public-release
-lifecycle as smooth as the product allows, with strict connector
-discipline. Where no automation path exists, provide a guided release desk
-that never blocks on the control plane being absent.
+Run the release order: save-version → private-deploy → access/domain →
+public-release. Keep the lifecycle as smooth as the product allows, with
+strict connector discipline. Where no automation path exists, provide a
+guided release desk that works when the control plane is absent.
 
 ### 5.2 Tasks
 
@@ -296,7 +298,7 @@ that never blocks on the control plane being absent.
      or connector call, private-first;
    - a release log entry persisted via `appendEntry` (SHA, archive, time,
      notes) so releases stay traceable;
-   - never place credentials or customer data in the saved version.
+   - keep credentials and customer data out of the saved version.
 2. **Automation investigation (WS1 follow-up).** If WS1 found a viable
    connector path from pi (e.g., a `codex` CLI with the Sites plugin
    installed, or any officially documented interface), implement it behind
@@ -313,8 +315,8 @@ that never blocks on the control plane being absent.
 ### 5.3 Acceptance criteria
 
 - [ ] `/sites release` guides the full lifecycle private-first, refuses a
-      dirty tree, persists a release log, and never fabricates connector
-      steps.
+      dirty tree, persists a release log, and reports only verified
+      connector steps.
 - [ ] The automation decision is recorded with evidence
       (implemented behind a flag, or explicitly out of scope with reason).
 - [ ] No undocumented connector method or endpoint is used anywhere.
@@ -366,7 +368,7 @@ the workflow.
 ## 7. Final report and completion
 
 The final report is the lasting record (the operator deletes GOAL.md when
-the goal is done — do not delete it yourself). Deliver it as your final
+the goal is done. Deliver it as your final
 message before marking the goal complete. It must contain:
 
 1. **Agent tree** — every child: task name, role, model, effective
