@@ -1,6 +1,6 @@
 {
   "name": "@juvio15/pi-sites",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "ChatGPT Sites tooling for Pi (early stage)",
   "keywords": [
     "pi-package",
@@ -22,7 +22,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.6",
-    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-coding-agent": "0.84.0",
+    "@earendil-works/pi-tui": "0.84.0",
     "@types/node": "^24.10.0",
     "typescript": "^5.9.3",
     "ultracite": "^7.10.0"

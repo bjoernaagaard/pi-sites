@@ -4,7 +4,7 @@ Second final pass on the v0.2 suggestion, from the Pi extension API point of
 view. Question asked: **how much of the roadmap can be native pi extension
 mechanisms instead of documents, checklists, and guided steps?** Answer:
 **nearly all of it.** Below is the native-viability matrix (evidence-backed),
-the pi mechanisms verified live on pi 0.83.0, and the v0.3 tool-first build
+the pi mechanisms verified live on pi 0.84.0, and the v0.3 tool-first build
 list. This document is deliberately short — the tools are the product, not
 this file.
 
@@ -12,7 +12,7 @@ this file.
 
 ## 1. Native-viability matrix (capability → pi mechanism → verdict)
 
-Every row names the exact pi 0.83.0 API that makes the capability native.
+Every row names the exact pi 0.84.0 API that makes the capability native.
 "B" = bridge (must shell out to `codex exec` for the control plane — pi has
 no direct connector); everything else is pure extension.
 
@@ -35,7 +35,7 @@ no direct connector); everything else is pure extension.
 | Field-guide/checklist docs | keep only README field guide; release checklist lives INSIDE `sites_check` (15 items with evidence) — not in a doc | ✅ already true |
 | Skill file | none — tool `description` + `promptGuidelines` are the guidance | ✅ already true |
 
-## 2. Pi mechanisms verified live this pass (pi 0.83.0, print/RPC modes)
+## 2. Pi mechanisms verified live this pass (pi 0.84.0, print/RPC modes)
 
 | Mechanism | Evidence |
 | --- | --- |

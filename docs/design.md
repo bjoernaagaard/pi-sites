@@ -2,13 +2,13 @@
 
 Status: authoritative design document for the pi-sites extension.
 Sources: this repo's `README.md` (Sites field guide), the installed Sites
-plugin bundle, the official Sites docs, and pi 0.83.0 extension docs.
+plugin bundle, the official Sites docs, and pi 0.84.0 extension docs.
 Every claim below traces to one of those sources; unverifiable items are
 marked `UNVERIFIED`.
 
-Last verified: 2026-08-02
+Last verified: 2026-08-06
 Bundle version verified against: **`0.1.33`** (`$HOME/.codex/plugins/cache/openai-bundled/sites/0.1.33/`)
-pi version verified against: **`0.83.0`** (`npm view @earendil-works/pi-coding-agent version` → 0.83.0)
+pi version verified against: **`0.84.0`** (`npm view @earendil-works/pi-coding-agent version` → 0.84.0)
 
 ---
 
