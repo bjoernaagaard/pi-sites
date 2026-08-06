@@ -4,3 +4,6 @@ node_modules
 *.tsbuildinfo
 coverage/
 .pi/
+
+# local goal tooling state
+.goal-prompt.txt
